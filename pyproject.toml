@@ -8,6 +8,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 requests = "^2.32.3"
+yt-dlp = "^2024.7.9"
 
 
 [build-system]
