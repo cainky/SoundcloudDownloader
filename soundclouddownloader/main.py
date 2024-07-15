@@ -103,6 +103,8 @@ class SoundCloudDownloader:
     def _create_zip(self, files, zip_filename):
         logger.debug(f"Creating zip file: {zip_filename}")
         logger.debug(f"Files to be zipped: {files}")
+
+        logger.info("Zipping files now please wait...")
         with zipfile.ZipFile(zip_filename, "w") as zipf:
             for file in files:
                 if file.exists():
@@ -138,6 +140,8 @@ def main():
         logger.success(f"Playlist downloaded and zipped: {zip_file}")
     else:
         logger.error("Failed to download playlist.")
+        # Add any cleanup code here if needed
+    sys.stdout.flush()  # Ensure all output is displayed
 
 
 if __name__ == "__main__":
