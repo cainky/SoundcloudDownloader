@@ -47,7 +47,7 @@ class SoundCloudDownloader:
                 logger.info(f"Successfully downloaded: {filepath}")
                 return filepath
             else:
-                logger.warning(f"File not found after download: {filepath_without_ext}")
+                logger.warning(f"File not found after download: {filepath}")
                 # List directory contents for debugging
                 dir_contents = list(Path(output_dir).iterdir())
                 logger.debug(f"Directory contents: {[str(f) for f in dir_contents]}")
@@ -132,16 +132,13 @@ def main():
     output_dir = output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    try:
-        downloader = SoundCloudDownloader()
-        logger.info("Downloading now please wait...")
-        zip_file = downloader.download_playlist(playlist_url, output_dir, max_workers=3)
-        if zip_file:
-            logger.success(f"Playlist downloaded and zipped: {zip_file}")
-        else:
-            logger.error("Failed to download playlist.")
-    except Exception as e:
-        logger.exception(f"An error occurred: {e}")
+    downloader = SoundCloudDownloader()
+    logger.info("Downloading now please wait...")
+    zip_file = downloader.download_playlist(playlist_url, output_dir, max_workers=3)
+    if zip_file:
+        logger.success(f"Playlist downloaded and zipped: {zip_file}")
+    else:
+        logger.error("Failed to download playlist.")
 
 
 if __name__ == "__main__":
