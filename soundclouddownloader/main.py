@@ -4,10 +4,21 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import yt_dlp
 from loguru import logger
+from typing import List, Optional, Dict, Any
 
 
 class SoundCloudDownloader:
+    """
+    A class to download tracks and playlists from SoundCloud.
+
+    This class provides methods to download individual tracks and entire playlists
+    from SoundCloud, using yt-dlp as the backend.
+    """
+
     def __init__(self):
+        """
+        Initialize the SoundCloudDownloader with default yt-dlp options.
+        """
         self.ydl_opts = {
             "format": "bestaudio/best",
             "postprocessors": [
@@ -22,7 +33,17 @@ class SoundCloudDownloader:
             "no_warnings": True,
         }
 
-    def download_track(self, track_url, output_dir):
+    def download_track(self, track_url: str, output_dir: Path) -> Optional[Path]:
+        """
+        Download a single track from SoundCloud.
+
+        Args:
+            track_url (str): The URL of the track to download.
+            output_dir (Path): The directory to save the downloaded track.
+
+        Returns:
+            Optional[Path]: The path to the downloaded file, or None if download failed.
+        """
         with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
             info = ydl.extract_info(track_url, download=False)
             filename = ydl.prepare_filename(info)
@@ -63,8 +84,26 @@ class SoundCloudDownloader:
                 return None
 
     def download_playlist(
-        self, playlist_url, output_dir, max_workers=5, min_delay=3, max_delay=10
-    ):
+        self,
+        playlist_url: str,
+        output_dir: Path,
+        max_workers: int = 5,
+        min_delay: int = 3,
+        max_delay: int = 10,
+    ) -> Optional[Path]:
+        """
+        Download an entire playlist from SoundCloud.
+
+        Args:
+            playlist_url (str): The URL of the playlist to download.
+            output_dir (Path): The directory to save the downloaded tracks.
+            max_workers (int, optional): Maximum number of concurrent downloads. Defaults to 5.
+            min_delay (int, optional): Minimum delay between downloads in seconds. Defaults to 3.
+            max_delay (int, optional): Maximum delay between downloads in seconds. Defaults to 10.
+
+        Returns:
+            Optional[Path]: The path to the zipped playlist, or None if download failed.
+        """
         output_dir = Path(output_dir).resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -100,7 +139,14 @@ class SoundCloudDownloader:
             logger.error("No files were successfully downloaded.")
             return None
 
-    def _create_zip(self, files, zip_filename):
+    def _create_zip(self, files: List[Path], zip_filename: Path) -> None:
+        """
+        Create a zip file containing the downloaded tracks.
+
+        Args:
+            files (List[Path]): List of files to be included in the zip.
+            zip_filename (Path): Path where the zip file will be created.
+        """
         logger.debug(f"Creating zip file: {zip_filename}")
         logger.debug(f"Files to be zipped: {files}")
 
@@ -114,7 +160,13 @@ class SoundCloudDownloader:
                     logger.warning(f"File not found when creating zip: {file}")
 
 
-def main():
+def main() -> None:
+    """
+    Main function to run the SoundCloud downloader.
+
+    This function sets up logging, prompts the user for input,
+    and initiates the download process.
+    """
     logger.remove()
     logger.add(sys.stderr, level="INFO")
     logger.add("soundcloud_downloader.log", rotation="10 MB", level="INFO")
