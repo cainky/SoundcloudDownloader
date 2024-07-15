@@ -4,11 +4,14 @@
 
 This project provides a Python script for downloading entire playlists from SoundCloud. It uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) to handle the downloading process, making it robust against changes in SoundCloud's website structure. The script downloads each track in the playlist, converts them to MP3 format, and packages them into a zip file.
 
+This project uses Poetry for dependency management and packaging. If you haven't installed Poetry yet, you can do so by following the [official installation guide](https://python-poetry.org/docs/#installation).
+
 ## Requirements
 
 - Python 3.10+
 - yt-dlp
 - FFmpeg
+- Poetry
 
 ## Installation
 
@@ -18,9 +21,9 @@ git clone https://github.com/yourusername/soundcloud-playlist-downloader.git
 cd soundcloud-playlist-downloader
 ```
 
-2. Install the required Python package:
+2. Install the required Python packages:
 ```python
-pip install yt-dlp
+poetry install
 ```
 
 3. Install FFmpeg:
