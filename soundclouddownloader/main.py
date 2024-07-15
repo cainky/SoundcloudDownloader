@@ -108,7 +108,6 @@ class SoundCloudDownloader:
                 if file.exists():
                     logger.debug(f"Adding file to zip: {file}")
                     zipf.write(file, file.name)
-                    file.unlink()  # Remove the original file after adding to zip
                 else:
                     logger.warning(f"File not found when creating zip: {file}")
 
