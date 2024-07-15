@@ -1,6 +1,8 @@
 from urllib.parse import urlparse
 from pathlib import Path
-import re
+from unidecode import unidecode
+import re, zipfile
+from typing import List
 
 
 def validate_url(url: str) -> bool:
@@ -60,3 +62,26 @@ def clean_filename(filename: str) -> str:
         name, ext = os.path.splitext(filename)
         filename = name[: max_length - len(ext)] + ext
     return filename
+
+
+def create_zip(self, files: List[Path], zip_filename: Path, source_dir: Path) -> None:
+    """
+    Create a zip file containing the downloaded tracks.
+
+    Args:
+        files (List[Path]): List of files to be included in the zip.
+        zip_filename (Path): Path where the zip file will be created.
+        source_dir (Path): The directory containing the files to be zipped.
+    """
+    logger.debug(f"Creating zip file: {zip_filename}")
+    logger.debug(f"Files to be zipped: {files}")
+
+    logger.info("Zipping files now please wait...")
+    with zipfile.ZipFile(zip_filename, "w") as zipf:
+        for file in files:
+            if file.exists():
+                logger.debug(f"Adding file to zip: {file}")
+                arcname = file.relative_to(source_dir)
+                zipf.write(file, arcname)
+            else:
+                logger.warning(f"File not found when creating zip: {file}")

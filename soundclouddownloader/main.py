@@ -1,5 +1,5 @@
-import os, sys, re, zipfile, logging, time, random
-from utils import validate_url, clean_filename
+import os, sys, re, logging, time, random
+from utils import validate_url, clean_filename, create_zip
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import yt_dlp
@@ -69,7 +69,6 @@ class SoundCloudDownloader:
                 return filepath
             else:
                 logger.warning(f"File not found after download: {filepath}")
-                # List directory contents for debugging
                 dir_contents = list(Path(output_dir).iterdir())
                 logger.debug(f"Directory contents: {[str(f) for f in dir_contents]}")
 
@@ -112,12 +111,17 @@ class SoundCloudDownloader:
         with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
             playlist_info = ydl.extract_info(playlist_url, download=False)
             tracks = playlist_info["entries"]
+            playlist_name = clean_filename(
+                playlist_info.get("title", "Untitled_Playlist")
+            )
+        playlist_dir = output_dir / playlist_name
+        playlist_dir.mkdir(exist_ok=True)
 
-        downloaded_files = []
+        downloaded_files: List[Path] = []
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_track = {
                 executor.submit(
-                    self.download_track, track["webpage_url"], output_dir
+                    self.download_track, track["webpage_url"], playlist_dir
                 ): track
                 for track in tracks
             }
@@ -132,32 +136,12 @@ class SoundCloudDownloader:
                 time.sleep(delay)
 
         if downloaded_files:
-            zip_filename = output_dir / "playlist.zip"
-            self._create_zip(downloaded_files, zip_filename)
+            zip_filename = output_dir / f"{playlist_name}.zip"
+            create_zip(downloaded_files, zip_filename, playlist_dir)
             return zip_filename
         else:
             logger.error("No files were successfully downloaded.")
             return None
-
-    def _create_zip(self, files: List[Path], zip_filename: Path) -> None:
-        """
-        Create a zip file containing the downloaded tracks.
-
-        Args:
-            files (List[Path]): List of files to be included in the zip.
-            zip_filename (Path): Path where the zip file will be created.
-        """
-        logger.debug(f"Creating zip file: {zip_filename}")
-        logger.debug(f"Files to be zipped: {files}")
-
-        logger.info("Zipping files now please wait...")
-        with zipfile.ZipFile(zip_filename, "w") as zipf:
-            for file in files:
-                if file.exists():
-                    logger.debug(f"Adding file to zip: {file}")
-                    zipf.write(file, file.name)
-                else:
-                    logger.warning(f"File not found when creating zip: {file}")
 
 
 def main() -> None:
