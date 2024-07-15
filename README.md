@@ -45,6 +45,10 @@ python soundcloud_downloader.py
 
 4. The script will download all tracks in the playlist, convert them to MP3, and create a zip file containing all the tracks.
 
+## Running tests
+```bash
+poetry run python -m unittest discover
+```
 
 ## License
 

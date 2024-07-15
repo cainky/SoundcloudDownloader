@@ -1,5 +1,6 @@
-import os, sys, re, logging, time, random
-from utils import validate_url, clean_filename, create_zip
+import os, sys, re, logging, time, random, shutil
+from soundclouddownloader.utils import validate_url, clean_filename, create_zip
+from soundclouddownloader.dataclass import Track, Playlist
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import yt_dlp
@@ -33,19 +34,19 @@ class SoundCloudDownloader:
             "no_warnings": True,
         }
 
-    def download_track(self, track_url: str, output_dir: Path) -> Optional[Path]:
+    def download_track(self, track: Track, output_dir: Path) -> Optional[Path]:
         """
         Download a single track from SoundCloud.
 
         Args:
-            track_url (str): The URL of the track to download.
+            track (Track): The Track object to download.
             output_dir (Path): The directory to save the downloaded track.
 
         Returns:
             Optional[Path]: The path to the downloaded file, or None if download failed.
         """
         with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
-            info = ydl.extract_info(track_url, download=False)
+            info = ydl.extract_info(track.url, download=False)
             filename = ydl.prepare_filename(info)
             clean_name = clean_filename(filename)
             filepath_without_ext = Path(output_dir) / clean_name
@@ -54,7 +55,7 @@ class SoundCloudDownloader:
             ydl_opts["outtmpl"] = str(filepath_without_ext)
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([track_url])
+                ydl.download([track.url])
 
             time.sleep(0.5)  # Small delay to ensure file system update
             if filepath_without_ext.with_suffix(".mp3").exists():
@@ -83,6 +84,31 @@ class SoundCloudDownloader:
 
                 return None
 
+    def get_playlist_info(self, playlist_url: str) -> Playlist:
+        """
+        Extract playlist information from SoundCloud.
+
+        Args:
+            playlist_url (str): The URL of the playlist.
+
+        Returns:
+            Playlist: A Playlist object containing the playlist information.
+        """
+        with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
+            playlist_info = ydl.extract_info(playlist_url, download=False)
+            tracks = [
+                Track(
+                    id=track["id"],
+                    title=track["title"],
+                    artist=track["uploader"],
+                    url=track["webpage_url"],
+                )
+                for track in playlist_info["entries"]
+            ]
+            return Playlist(
+                id=playlist_info["id"], title=playlist_info["title"], tracks=tracks
+            )
+
     def download_playlist(
         self,
         playlist_url: str,
@@ -90,6 +116,7 @@ class SoundCloudDownloader:
         max_workers: int = 5,
         min_delay: int = 3,
         max_delay: int = 10,
+        should_zip: bool = False,
     ) -> Optional[Path]:
         """
         Download an entire playlist from SoundCloud.
@@ -100,31 +127,26 @@ class SoundCloudDownloader:
             max_workers (int, optional): Maximum number of concurrent downloads. Defaults to 5.
             min_delay (int, optional): Minimum delay between downloads in seconds. Defaults to 3.
             max_delay (int, optional): Maximum delay between downloads in seconds. Defaults to 10.
+            should_zip (bool, optional): Whether to zip the downloaded files. Defaults to False.
 
         Returns:
-            Optional[Path]: The path to the zipped playlist, or None if download failed.
+            Optional[Path]: The path to the zipped playlist or playlist directory, or None if download failed.
         """
         output_dir = Path(output_dir).resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
 
         logger.debug(f"Downloading to directory: {output_dir}")
 
-        with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
-            playlist_info = ydl.extract_info(playlist_url, download=False)
-            tracks = playlist_info["entries"]
-            playlist_name = clean_filename(
-                playlist_info.get("title", "Untitled_Playlist")
-            )
+        playlist = self.get_playlist_info(playlist_url)
+        playlist_name = clean_filename(playlist.title)
         playlist_dir = output_dir / playlist_name
         playlist_dir.mkdir(exist_ok=True)
 
         downloaded_files: List[Path] = []
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_track = {
-                executor.submit(
-                    self.download_track, track["webpage_url"], playlist_dir
-                ): track
-                for track in tracks
+                executor.submit(self.download_track, track, playlist_dir): track
+                for track in playlist.tracks
             }
             for future in as_completed(future_to_track):
                 track = future_to_track[future]
@@ -136,9 +158,15 @@ class SoundCloudDownloader:
                 time.sleep(delay)
 
         if downloaded_files:
-            zip_filename = output_dir / f"{playlist_name}.zip"
-            create_zip(downloaded_files, zip_filename, playlist_dir)
-            return zip_filename
+            if should_zip:
+                zip_filename = output_dir / f"{playlist_name}.zip"
+                create_zip(downloaded_files, zip_filename, playlist_dir)
+                for file in downloaded_files:
+                    file.unlink()  # Delete original files after zipping
+                shutil.rmtree(playlist_dir)
+                return zip_filename
+            else:
+                return playlist_dir
         else:
             logger.error("No files were successfully downloaded.")
             return None
@@ -169,11 +197,23 @@ def main() -> None:
     output_dir = output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    while True:
+        should_zip = input("Do you want to zip the downloaded files? (y/n): ").lower()
+        if should_zip in ["y", "n"]:
+            should_zip = should_zip == "y"
+            break
+        logger.warning("Invalid input. Please enter 'y' for yes or 'n' for no.")
+
     downloader = SoundCloudDownloader()
     logger.info("Downloading now please wait...")
-    zip_file = downloader.download_playlist(playlist_url, output_dir, max_workers=3)
-    if zip_file:
-        logger.success(f"Playlist downloaded and zipped: {zip_file}")
+    zip_file = downloader.download_playlist(
+        playlist_url, output_dir, max_workers=3, should_zip=should_zip
+    )
+    if result:
+        if should_zip:
+            logger.success(f"Playlist downloaded and zipped: {result}")
+        else:
+            logger.success(f"Playlist downloaded to directory: {result}")
     else:
         logger.error("Failed to download playlist.")
     sys.stdout.flush()

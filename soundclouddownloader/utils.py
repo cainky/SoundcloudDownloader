@@ -1,7 +1,7 @@
+import os, re, zipfile
 from urllib.parse import urlparse
 from pathlib import Path
 from unidecode import unidecode
-import re, zipfile
 from loguru import logger
 from typing import List
 
