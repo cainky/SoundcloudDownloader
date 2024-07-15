@@ -1,9 +1,5 @@
-import os
-import re
-import zipfile
-import logging
-import time
-from utils import validate_url
+import os, sys, re, zipfile, logging, time, random
+from utils import validate_url, clean_filename
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import yt_dlp
@@ -21,60 +17,58 @@ class SoundCloudDownloader:
                     "preferredquality": "192",
                 }
             ],
-            "outtmpl": "%(title)s.%(ext)s",
+            "outtmpl": "%(title)s",
             "quiet": True,
             "no_warnings": True,
         }
 
     def download_track(self, track_url, output_dir):
-        try:
-            with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
-                info = ydl.extract_info(track_url, download=False)
-                filename = ydl.prepare_filename(info)
-                filename = Path(filename).stem  # Remove all extensions
-                filename = "".join(c for c in filename if c.isalnum() or c in "._- ")
-                filename = f"{filename}.mp3"  # Add .mp3 extension
-                filepath = output_dir / filename
+        with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
+            info = ydl.extract_info(track_url, download=False)
+            filename = ydl.prepare_filename(info)
+            clean_name = clean_filename(filename)
+            filepath_without_ext = Path(output_dir) / clean_name
 
-                ydl_opts = dict(self.ydl_opts)
-                ydl_opts["outtmpl"] = str(filepath)
+            ydl_opts = dict(self.ydl_opts)
+            ydl_opts["outtmpl"] = str(filepath_without_ext)
 
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([track_url])
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([track_url])
 
-                time.sleep(0.5)  # Small delay to ensure file system update
+            time.sleep(0.5)  # Small delay to ensure file system update
+            if filepath_without_ext.with_suffix(".mp3").exists():
+                filepath = filepath_without_ext.with_suffix(".mp3")
+            elif filepath_without_ext.exists():
+                filepath = filepath_without_ext
+            else:
+                filepath = None
 
-                if filepath.exists():
-                    logger.info(f"Successfully downloaded: {filepath}")
-                    return filepath
-                else:
-                    logger.warning(f"File not found after download: {filepath}")
-                    # List directory contents for debugging
-                    dir_contents = list(output_dir.iterdir())
-                    logger.debug(f"Directory contents: {dir_contents}")
+            if filepath:
+                logger.info(f"Successfully downloaded: {filepath}")
+                return filepath
+            else:
+                logger.warning(f"File not found after download: {filepath_without_ext}")
+                # List directory contents for debugging
+                dir_contents = list(Path(output_dir).iterdir())
+                logger.debug(f"Directory contents: {[str(f) for f in dir_contents]}")
 
-                    # Try to find a file with a similar name
-                    similar_files = [
-                        f
-                        for f in dir_contents
-                        if f.stem.startswith(Path(filename).stem)
-                    ]
-                    if similar_files:
-                        logger.info(f"Found similar file: {similar_files[0]}")
-                        return similar_files[0]
+                # Try to find a file with a similar name
+                similar_files = [
+                    f for f in dir_contents if f.stem.startswith(clean_name)
+                ]
+                if similar_files:
+                    logger.info(f"Found similar file: {similar_files[0]}")
+                    return similar_files[0]
 
-                    return None
-        except Exception as e:
-            logger.error(f"Failed to download track {track_url}: {e}")
-            return None
+                return None
 
     def download_playlist(
-        self, playlist_url, output_dir, max_workers=5, min_delay=1, max_delay=5
+        self, playlist_url, output_dir, max_workers=5, min_delay=3, max_delay=10
     ):
         output_dir = Path(output_dir).resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Downloading to directory: {output_dir}")
+        logger.debug(f"Downloading to directory: {output_dir}")
 
         with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
             playlist_info = ydl.extract_info(playlist_url, download=False)
@@ -90,17 +84,13 @@ class SoundCloudDownloader:
             }
             for future in as_completed(future_to_track):
                 track = future_to_track[future]
-                try:
-                    filepath = future.result()
-                    if filepath:
-                        downloaded_files.append(filepath)
+                filepath = future.result()
+                if filepath:
+                    downloaded_files.append(filepath)
 
-                    # Add random delay after each download
-                    delay = random.uniform(min_delay, max_delay)
-                    time.sleep(delay)
-
-                except Exception as e:
-                    logger.error(f"Error downloading {track['title']}: {e}")
+                # Add random delay after each download
+                delay = random.uniform(min_delay, max_delay)
+                time.sleep(delay)
 
         if downloaded_files:
             zip_filename = output_dir / "playlist.zip"
@@ -111,7 +101,7 @@ class SoundCloudDownloader:
             return None
 
     def _create_zip(self, files, zip_filename):
-        logger.info(f"Creating zip file: {zip_filename}")
+        logger.debug(f"Creating zip file: {zip_filename}")
         logger.debug(f"Files to be zipped: {files}")
         with zipfile.ZipFile(zip_filename, "w") as zipf:
             for file in files:
@@ -124,6 +114,8 @@ class SoundCloudDownloader:
 
 
 def main():
+    logger.remove()
+    logger.add(sys.stderr, level="INFO")
     logger.add("soundcloud_downloader.log", rotation="10 MB", level="INFO")
 
     while True:
@@ -142,9 +134,8 @@ def main():
 
     try:
         downloader = SoundCloudDownloader()
-        zip_file = downloader.download_playlist(
-            playlist_url, output_dir, max_workers=3, min_delay=2, max_delay=5
-        )
+        logger.info("Downloading now please wait...")
+        zip_file = downloader.download_playlist(playlist_url, output_dir, max_workers=3)
         if zip_file:
             logger.success(f"Playlist downloaded and zipped: {zip_file}")
         else:
