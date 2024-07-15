@@ -2,7 +2,7 @@
 name = "soundclouddownloader"
 version = "0.1.0"
 description = ""
-authors = ["Kyle Cain <kylecain0@gmail.com>"]
+authors = ["Kyle Cain <kylecain.me@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
