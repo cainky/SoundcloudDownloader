@@ -2,6 +2,7 @@ from urllib.parse import urlparse
 from pathlib import Path
 from unidecode import unidecode
 import re, zipfile
+from loguru import logger
 from typing import List
 
 
@@ -64,7 +65,7 @@ def clean_filename(filename: str) -> str:
     return filename
 
 
-def create_zip(self, files: List[Path], zip_filename: Path, source_dir: Path) -> None:
+def create_zip(files: List[Path], zip_filename: Path, source_dir: Path) -> None:
     """
     Create a zip file containing the downloaded tracks.
 

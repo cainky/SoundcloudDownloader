@@ -68,7 +68,7 @@ class SoundCloudDownloader:
                 logger.info(f"Successfully downloaded: {filepath}")
                 return filepath
             else:
-                logger.warning(f"File not found after download: {filepath}")
+                logger.info(f"File not found after download: {filepath_without_ext}")
                 dir_contents = list(Path(output_dir).iterdir())
                 logger.debug(f"Directory contents: {[str(f) for f in dir_contents]}")
 
@@ -77,8 +77,9 @@ class SoundCloudDownloader:
                     f for f in dir_contents if f.stem.startswith(clean_name)
                 ]
                 if similar_files:
-                    logger.info(f"Found similar file: {similar_files[0]}")
-                    return similar_files[0]
+                    similar_file = similar_files[0]
+                    logger.info(f"Found similar file: {similar_file}")
+                    return similar_file
 
                 return None
 
@@ -131,7 +132,6 @@ class SoundCloudDownloader:
                 if filepath:
                     downloaded_files.append(filepath)
 
-                # Add random delay after each download
                 delay = random.uniform(min_delay, max_delay)
                 time.sleep(delay)
 
@@ -176,8 +176,7 @@ def main() -> None:
         logger.success(f"Playlist downloaded and zipped: {zip_file}")
     else:
         logger.error("Failed to download playlist.")
-        # Add any cleanup code here if needed
-    sys.stdout.flush()  # Ensure all output is displayed
+    sys.stdout.flush()
 
 
 if __name__ == "__main__":
