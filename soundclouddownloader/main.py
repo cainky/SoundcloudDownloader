@@ -97,7 +97,6 @@ class SoundCloudDownloader:
 
                     # Add random delay after each download
                     delay = random.uniform(min_delay, max_delay)
-                    logger.info(f"Waiting for {delay:.2f} seconds before next download")
                     time.sleep(delay)
 
                 except Exception as e:
@@ -122,7 +121,6 @@ class SoundCloudDownloader:
                     file.unlink()  # Remove the original file after adding to zip
                 else:
                     logger.warning(f"File not found when creating zip: {file}")
-        logger.info(f"Created zip file: {zip_filename}")
 
 
 def main():
@@ -144,7 +142,9 @@ def main():
 
     try:
         downloader = SoundCloudDownloader()
-        zip_file = downloader.download_playlist(playlist_url, output_dir)
+        zip_file = downloader.download_playlist(
+            playlist_url, output_dir, max_workers=3, min_delay=2, max_delay=5
+        )
         if zip_file:
             logger.success(f"Playlist downloaded and zipped: {zip_file}")
         else:
