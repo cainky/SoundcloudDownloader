@@ -17,8 +17,8 @@ This project uses Poetry for dependency management and packaging. If you haven't
 
 1. Clone this repository:
 ```python
-git clone https://github.com/cainky/soundcloud-playlist-downloader.git
-cd soundcloud-playlist-downloader
+git clone https://github.com/cainky/soundclouddownloader.git
+cd soundclouddownloader
 ```
 
 2. Install the required Python packages:
