@@ -17,7 +17,7 @@ This project uses Poetry for dependency management and packaging. If you haven't
 
 1. Clone this repository:
 ```python
-git clone https://github.com/yourusername/soundcloud-playlist-downloader.git
+git clone https://github.com/cainky/soundcloud-playlist-downloader.git
 cd soundcloud-playlist-downloader
 ```
 
@@ -36,7 +36,7 @@ poetry install
 1. Run the script:
 
 ```python
-python soundcloud_downloader.py
+poetry run python main.py
 ```
 
 2. When prompted, enter the URL of the SoundCloud playlist you want to download. Paste the entire url including the `?si=` part. Playlist can be private.
