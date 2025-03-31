@@ -7,6 +7,10 @@ import yt_dlp
 from loguru import logger
 from typing import List, Optional, Dict, Any
 
+logger.remove()
+logger.add(sys.stderr, level="INFO")
+logger.add("soundcloud_downloader.log", rotation="10 MB", level="INFO")
+
 
 class SoundCloudDownloader:
     """
@@ -179,9 +183,6 @@ def main() -> None:
     This function sets up logging, prompts the user for input,
     and initiates the download process.
     """
-    logger.remove()
-    logger.add(sys.stderr, level="INFO")
-    logger.add("soundcloud_downloader.log", rotation="10 MB", level="INFO")
 
     while True:
         playlist_url = input("Enter SoundCloud playlist URL: ")

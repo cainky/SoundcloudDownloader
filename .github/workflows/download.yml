@@ -1,0 +1,53 @@
+name: Download SoundCloud Playlist
+
+on:
+  workflow_dispatch:
+    inputs:
+      playlist_url:
+        description: 'SoundCloud Playlist URL'
+        required: true
+      zip_files:
+        description: 'Zip the downloaded files?'
+        required: true
+        default: 'true'
+      output_folder:
+        description: 'Output folder name'
+        required: false
+        default: 'output'
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: poetry install
+
+      - name: Run downloader
+        run: |
+          poetry run python -m soundclouddownloader.cli_entry \
+            --url "${{ github.event.inputs.playlist_url }}" \
+            --output "${{ github.event.inputs.output_folder }}" \
+            $([[ "${{ github.event.inputs.zip_files }}" == "true" ]] && echo "--zip")
+
+      - name: Upload output files
+        uses: actions/upload-artifact@v4
+        with:
+          name: playlist-output
+          path: ${{ github.event.inputs.output_folder }}
