@@ -210,11 +210,11 @@ def main() -> None:
     zip_file = downloader.download_playlist(
         playlist_url, output_dir, max_workers=3, should_zip=should_zip
     )
-    if result:
+    if zip_file:
         if should_zip:
-            logger.success(f"Playlist downloaded and zipped: {result}")
+            logger.success(f"Playlist downloaded and zipped: {zip_file}")
         else:
-            logger.success(f"Playlist downloaded to directory: {result}")
+            logger.success(f"Playlist downloaded to directory: {zip_file}")
     else:
         logger.error("Failed to download playlist.")
     sys.stdout.flush()
