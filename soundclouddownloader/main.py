@@ -69,24 +69,26 @@ class SoundCloudDownloader:
             else:
                 filepath = None
 
-            if filepath:
-                logger.info(f"Successfully downloaded: {filepath}")
-                return filepath
-            else:
-                logger.info(f"File not found after download: {filepath_without_ext}")
+            if not filepath:
                 dir_contents = list(Path(output_dir).iterdir())
-                logger.debug(f"Directory contents: {[str(f) for f in dir_contents]}")
 
                 # Try to find a file with a similar name
                 similar_files = [
                     f for f in dir_contents if f.stem.startswith(clean_name)
                 ]
                 if similar_files:
-                    similar_file = similar_files[0]
-                    logger.info(f"Found similar file: {similar_file}")
-                    return similar_file
+                    filepath = similar_files[0]
+                if not filepath:
+                    logger.info(
+                        f"File not found after download: {filepath_without_ext}"
+                    )
+                    logger.debug(
+                        f"Directory contents: {[str(f) for f in dir_contents]}"
+                    )
+                    return None
 
-                return None
+            logger.info(f"Successfully downloaded: {filepath}")
+            return filepath
 
     def get_playlist_info(self, playlist_url: str) -> Playlist:
         """
@@ -207,14 +209,11 @@ def main() -> None:
 
     downloader = SoundCloudDownloader()
     logger.info("Downloading now please wait...")
-    zip_file = downloader.download_playlist(
+    download = downloader.download_playlist(
         playlist_url, output_dir, max_workers=3, should_zip=should_zip
     )
-    if zip_file:
-        if should_zip:
-            logger.success(f"Playlist downloaded and zipped: {zip_file}")
-        else:
-            logger.success(f"Playlist downloaded to directory: {zip_file}")
+    if download:
+        logger.success(f"Playlist downloaded: {download}")
     else:
         logger.error("Failed to download playlist.")
     sys.stdout.flush()

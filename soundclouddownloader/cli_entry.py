@@ -18,10 +18,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="CLI for SoundCloud Downloader")
     parser.add_argument("--url", required=True, help="SoundCloud playlist URL")
     parser.add_argument("--output", default="output", help="Output directory")
-    parser.add_argument("--zip", action="store_true", help="Zip downloaded files")
     args = parser.parse_args()
 
     output_path = Path(args.output).resolve()
     output_path.mkdir(parents=True, exist_ok=True)
 
-    run(args.url, output_path, args.zip)
+    run(args.url, output_path, False)

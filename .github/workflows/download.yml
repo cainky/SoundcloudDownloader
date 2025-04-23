@@ -6,10 +6,6 @@ on:
       playlist_url:
         description: 'SoundCloud Playlist URL'
         required: true
-      zip_files:
-        description: 'Zip the downloaded files?'
-        required: true
-        default: 'true'
       output_folder:
         description: 'Output folder name'
         required: false
@@ -17,6 +13,9 @@ on:
 
 jobs:
   run:
+    permissions:
+      contents: read
+      actions: write
     runs-on: ubuntu-latest
 
     steps:
@@ -43,8 +42,7 @@ jobs:
         run: |
           poetry run python -m soundclouddownloader.cli_entry \
             --url "${{ github.event.inputs.playlist_url }}" \
-            --output "${{ github.event.inputs.output_folder }}" \
-            $([[ "${{ github.event.inputs.zip_files }}" == "true" ]] && echo "--zip")
+            --output "${{ github.event.inputs.output_folder }}"
 
       - name: Upload output files
         uses: actions/upload-artifact@v4
