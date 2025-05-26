@@ -231,14 +231,14 @@ dev = ["black (>=19.3b0) ; python_version >= \"3.6\"", "pytest (>=4.6.2)"]
 
 [[package]]
 name = "yt-dlp"
-version = "2025.4.30"
+version = "2025.5.22"
 description = "A feature-rich command-line audio/video downloader"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "yt_dlp-2025.4.30-py3-none-any.whl", hash = "sha256:53cd82bf13f12a1fe9c564b0004e001156b153c9247fa3cef14d1400ab359150"},
-    {file = "yt_dlp-2025.4.30.tar.gz", hash = "sha256:d01367d0c3ae94e35cb1e2eccb7a7c70e181c4ca448f4ee2374f26489d263603"},
+    {file = "yt_dlp-2025.5.22-py3-none-any.whl", hash = "sha256:a49c4b76afeaded6254c3e2b759d8d5a13271aa963d5fccb51fe059d1c313151"},
+    {file = "yt_dlp-2025.5.22.tar.gz", hash = "sha256:ea73854c5dabc124f29a35a8fae9bc5d422ef3231bebeea2bdfa82ac191a9c29"},
 ]
 
 [package.extras]
@@ -246,7 +246,7 @@ build = ["build", "hatchling", "pip", "setuptools (>=71.0.2)", "wheel"]
 curl-cffi = ["curl-cffi (>=0.5.10,<0.6.dev0 || ==0.10.*) ; implementation_name == \"cpython\""]
 default = ["brotli ; implementation_name == \"cpython\"", "brotlicffi ; implementation_name != \"cpython\"", "certifi", "mutagen", "pycryptodomex", "requests (>=2.32.2,<3)", "urllib3 (>=1.26.17,<3)", "websockets (>=13.0)"]
 dev = ["autopep8 (>=2.0,<3.0)", "pre-commit", "pytest (>=8.1,<9.0)", "pytest-rerunfailures (>=14.0,<15.0)", "ruff (>=0.11.0,<0.12.0)"]
-pyinstaller = ["pyinstaller (>=6.11.1)"]
+pyinstaller = ["pyinstaller (>=6.13.0)"]
 secretstorage = ["cffi", "secretstorage"]
 static-analysis = ["autopep8 (>=2.0,<3.0)", "ruff (>=0.11.0,<0.12.0)"]
 test = ["pytest (>=8.1,<9.0)", "pytest-rerunfailures (>=14.0,<15.0)"]
@@ -254,4 +254,4 @@ test = ["pytest (>=8.1,<9.0)", "pytest-rerunfailures (>=14.0,<15.0)"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "8603cbf5fb68ce2f4f850c8da5b92f1b11aa406375fb31d7d1e7f35d506b5360"
+content-hash = "e151b1341d91567c5640ca5b8976d6476c2640dc733eb7e6de27f9520c21ab2a"
