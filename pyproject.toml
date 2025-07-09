@@ -8,7 +8,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 requests = "^2.32.4"
-yt-dlp = "^2025.6.25"
+yt-dlp = "^2025.6.30"
 loguru = "^0.7.3"
 unidecode = "^1.4.0"
 
