@@ -11,6 +11,16 @@ logger.remove()
 logger.add(sys.stderr, level="INFO")
 logger.add("soundcloud_downloader.log", rotation="10 MB", level="INFO")
 
+# List of public proxies to try when geo-restrictions are encountered
+# Note: Public proxies may be unreliable; consider using your own proxy service for production
+PUBLIC_PROXIES = [
+    "http://proxy.toolip.gr:31288",
+    "http://proxy.vnpay.vn:8080",
+    "http://168.205.102.26:8080",
+    "http://103.155.217.156:41367",
+    "http://41.230.62.211:8080",
+]
+
 
 class SoundCloudDownloader:
     """
@@ -20,12 +30,14 @@ class SoundCloudDownloader:
     from SoundCloud, using yt-dlp as the backend.
     """
 
-    def __init__(self, proxy: Optional[str] = None):
+    def __init__(self, proxy: Optional[str] = None, default_proxy: Optional[str] = None, auto_proxy: bool = False):
         """
         Initialize the SoundCloudDownloader with default yt-dlp options.
 
         Args:
-            proxy (Optional[str]): Proxy URL to use for downloads (e.g., 'http://proxy.example.com:8080')
+            proxy (Optional[str]): Proxy URL to use for all downloads (e.g., 'http://proxy.example.com:8080')
+            default_proxy (Optional[str]): Fallback proxy URL to automatically retry geo-restricted tracks
+            auto_proxy (bool): Automatically try public proxies when geo-restricted tracks are encountered
         """
         self.ydl_opts = {
             "format": "bestaudio/best",
@@ -44,6 +56,13 @@ class SoundCloudDownloader:
             self.ydl_opts["proxy"] = proxy
             logger.info(f"Using proxy: {proxy}")
 
+        self.default_proxy = default_proxy
+        self.auto_proxy = auto_proxy
+        if default_proxy and not proxy:
+            logger.info(f"Default proxy configured for geo-restricted tracks: {default_proxy}")
+        if auto_proxy and not proxy and not default_proxy:
+            logger.info(f"Auto-proxy enabled: will try public proxies for geo-restricted tracks")
+
     def download_track(self, track: Track, output_dir: Path) -> Optional[Path]:
         """
         Download a single track from SoundCloud.
@@ -55,17 +74,31 @@ class SoundCloudDownloader:
         Returns:
             Optional[Path]: The path to the downloaded file, or None if download failed.
         """
+        return self._download_track_with_options(track, output_dir, self.ydl_opts)
+
+    def _download_track_with_options(self, track: Track, output_dir: Path, ydl_opts: dict) -> Optional[Path]:
+        """
+        Internal method to download a track with specific yt-dlp options.
+
+        Args:
+            track (Track): The Track object to download.
+            output_dir (Path): The directory to save the downloaded track.
+            ydl_opts (dict): yt-dlp options to use for this download.
+
+        Returns:
+            Optional[Path]: The path to the downloaded file, or None if download failed.
+        """
         try:
-            with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(track.url, download=False)
                 filename = ydl.prepare_filename(info)
                 clean_name = clean_filename(filename)
                 filepath_without_ext = Path(output_dir) / clean_name
 
-                ydl_opts = dict(self.ydl_opts)
-                ydl_opts["outtmpl"] = str(filepath_without_ext)
+                opts = dict(ydl_opts)
+                opts["outtmpl"] = str(filepath_without_ext)
 
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                with yt_dlp.YoutubeDL(opts) as ydl:
                     ydl.download([track.url])
 
                 time.sleep(0.5)  # Small delay to ensure file system update
@@ -97,8 +130,42 @@ class SoundCloudDownloader:
                 logger.info(f"Successfully downloaded: {filepath}")
                 return filepath
         except yt_dlp.utils.GeoRestrictedError:
-            logger.warning(f"Skipping geo-restricted track: {track.title} ({track.url})")
-            return None
+            # If default proxy is configured and not already using it, retry with proxy
+            if self.default_proxy and "proxy" not in ydl_opts:
+                logger.warning(f"Track is geo-restricted: {track.title}. Retrying with default proxy...")
+                proxy_opts = dict(ydl_opts)
+                proxy_opts["proxy"] = self.default_proxy
+                try:
+                    return self._download_track_with_options(track, output_dir, proxy_opts)
+                except yt_dlp.utils.GeoRestrictedError:
+                    logger.warning(f"Default proxy failed, trying public proxies...")
+                except Exception as e:
+                    logger.error(f"Failed to download track '{track.title}' with default proxy: {str(e)}")
+
+            # If auto_proxy is enabled and not already using a proxy, try public proxies
+            if self.auto_proxy and "proxy" not in ydl_opts:
+                logger.warning(f"Track is geo-restricted: {track.title}. Trying public proxies...")
+                for proxy in PUBLIC_PROXIES:
+                    try:
+                        logger.debug(f"Attempting download with proxy: {proxy}")
+                        proxy_opts = dict(ydl_opts)
+                        proxy_opts["proxy"] = proxy
+                        result = self._download_track_with_options(track, output_dir, proxy_opts)
+                        if result:
+                            logger.info(f"Successfully downloaded using proxy: {proxy}")
+                            return result
+                    except yt_dlp.utils.GeoRestrictedError:
+                        logger.debug(f"Proxy {proxy} also geo-restricted, trying next...")
+                        continue
+                    except Exception as e:
+                        logger.debug(f"Proxy {proxy} failed: {str(e)}, trying next...")
+                        continue
+
+                logger.warning(f"Skipping geo-restricted track (all proxies failed): {track.title} ({track.url})")
+                return None
+            else:
+                logger.warning(f"Skipping geo-restricted track: {track.title} ({track.url})")
+                return None
         except Exception as e:
             logger.error(f"Failed to download track '{track.title}': {str(e)}")
             return None
@@ -234,7 +301,10 @@ def main() -> None:
 
     proxy = input("Enter proxy URL (optional, press Enter to skip): ").strip() or None
 
-    downloader = SoundCloudDownloader(proxy=proxy)
+    auto_proxy_input = input("Automatically try public proxies for geo-restricted tracks? (y/n, default: n): ").lower() or "n"
+    auto_proxy = auto_proxy_input == "y"
+
+    downloader = SoundCloudDownloader(proxy=proxy, auto_proxy=auto_proxy)
     logger.info("Downloading now please wait...")
     download = downloader.download_playlist(
         playlist_url, output_dir, max_workers=3, should_zip=should_zip

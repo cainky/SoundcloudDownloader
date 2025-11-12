@@ -64,18 +64,19 @@ poetry run python main.py
 ### CLI Mode (for GitHub Actions or automation)
 
 ```bash
-poetry run python -m soundclouddownloader.cli_entry --url <PLAYLIST_URL> --output <OUTPUT_DIR> [--proxy <PROXY_URL>] [--zip]
+poetry run python -m soundclouddownloader.cli_entry --url <PLAYLIST_URL> --output <OUTPUT_DIR> [--proxy <PROXY_URL>] [--auto-proxy] [--zip]
 ```
 
 **Options:**
 - `--url`: SoundCloud playlist URL (required)
 - `--output`: Output directory (default: "output")
 - `--proxy`: Proxy URL for bypassing geo-restrictions (e.g., `http://proxy.example.com:8080`)
+- `--auto-proxy`: Automatically try public proxies for geo-restricted tracks (recommended for CI/CD)
 - `--zip`: Create a zip file of downloaded tracks
 
 **Example:**
 ```bash
-poetry run python -m soundclouddownloader.cli_entry --url "https://soundcloud.com/user/sets/playlist" --output downloads --proxy http://proxy.example.com:8080 --zip
+poetry run python -m soundclouddownloader.cli_entry --url "https://soundcloud.com/user/sets/playlist" --output downloads --auto-proxy --zip
 ```
 
 ### Handling Geo-Restricted Tracks
@@ -85,10 +86,22 @@ The downloader gracefully handles geo-restricted tracks by:
 - Continuing to download other available tracks in the playlist
 - Providing a summary of successful downloads and skipped tracks
 
-If you encounter geo-restrictions, you can:
-1. Use the `--proxy` option to route downloads through a proxy server
-2. Run the downloader from a different geographic location
-3. Accept that some tracks may be unavailable and download the rest
+If you encounter geo-restrictions, you have several options:
+
+1. **Auto-Proxy (Recommended for CI/CD)**: Use the `--auto-proxy` flag to automatically try a rotation of public proxies when geo-restricted tracks are encountered
+   ```bash
+   poetry run python -m soundclouddownloader.cli_entry --url "URL" --auto-proxy
+   ```
+   The downloader will automatically retry failed tracks with multiple public proxies until one succeeds.
+
+2. **Manual Proxy**: Use the `--proxy` option to route all downloads through a specific proxy server
+   ```bash
+   poetry run python -m soundclouddownloader.cli_entry --url "URL" --proxy http://your-proxy.com:8080
+   ```
+
+3. **Accept Limited Downloads**: Run without proxy options and accept that some tracks may be unavailable
+
+**Note**: Public proxies (used by `--auto-proxy`) may be slower or less reliable than dedicated proxy services. For production use, consider using a dedicated proxy service with the `--proxy` option.
 
 ## Running tests
 ```bash
