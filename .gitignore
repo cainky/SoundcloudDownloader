@@ -1,6 +1,9 @@
 soundclouddownloader/output/*
 **/*.mp3
 
+# Claude Code
+.claude/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

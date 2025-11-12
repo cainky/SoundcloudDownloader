@@ -20,9 +20,12 @@ class SoundCloudDownloader:
     from SoundCloud, using yt-dlp as the backend.
     """
 
-    def __init__(self):
+    def __init__(self, proxy: Optional[str] = None):
         """
         Initialize the SoundCloudDownloader with default yt-dlp options.
+
+        Args:
+            proxy (Optional[str]): Proxy URL to use for downloads (e.g., 'http://proxy.example.com:8080')
         """
         self.ydl_opts = {
             "format": "bestaudio/best",
@@ -37,6 +40,9 @@ class SoundCloudDownloader:
             "quiet": True,
             "no_warnings": True,
         }
+        if proxy:
+            self.ydl_opts["proxy"] = proxy
+            logger.info(f"Using proxy: {proxy}")
 
     def download_track(self, track: Track, output_dir: Path) -> Optional[Path]:
         """
@@ -49,46 +55,53 @@ class SoundCloudDownloader:
         Returns:
             Optional[Path]: The path to the downloaded file, or None if download failed.
         """
-        with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
-            info = ydl.extract_info(track.url, download=False)
-            filename = ydl.prepare_filename(info)
-            clean_name = clean_filename(filename)
-            filepath_without_ext = Path(output_dir) / clean_name
+        try:
+            with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
+                info = ydl.extract_info(track.url, download=False)
+                filename = ydl.prepare_filename(info)
+                clean_name = clean_filename(filename)
+                filepath_without_ext = Path(output_dir) / clean_name
 
-            ydl_opts = dict(self.ydl_opts)
-            ydl_opts["outtmpl"] = str(filepath_without_ext)
+                ydl_opts = dict(self.ydl_opts)
+                ydl_opts["outtmpl"] = str(filepath_without_ext)
 
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([track.url])
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([track.url])
 
-            time.sleep(0.5)  # Small delay to ensure file system update
-            if filepath_without_ext.with_suffix(".mp3").exists():
-                filepath = filepath_without_ext.with_suffix(".mp3")
-            elif filepath_without_ext.exists():
-                filepath = filepath_without_ext
-            else:
-                filepath = None
+                time.sleep(0.5)  # Small delay to ensure file system update
+                if filepath_without_ext.with_suffix(".mp3").exists():
+                    filepath = filepath_without_ext.with_suffix(".mp3")
+                elif filepath_without_ext.exists():
+                    filepath = filepath_without_ext
+                else:
+                    filepath = None
 
-            if not filepath:
-                dir_contents = list(Path(output_dir).iterdir())
-
-                # Try to find a file with a similar name
-                similar_files = [
-                    f for f in dir_contents if f.stem.startswith(clean_name)
-                ]
-                if similar_files:
-                    filepath = similar_files[0]
                 if not filepath:
-                    logger.info(
-                        f"File not found after download: {filepath_without_ext}"
-                    )
-                    logger.debug(
-                        f"Directory contents: {[str(f) for f in dir_contents]}"
-                    )
-                    return None
+                    dir_contents = list(Path(output_dir).iterdir())
 
-            logger.info(f"Successfully downloaded: {filepath}")
-            return filepath
+                    # Try to find a file with a similar name
+                    similar_files = [
+                        f for f in dir_contents if f.stem.startswith(clean_name)
+                    ]
+                    if similar_files:
+                        filepath = similar_files[0]
+                    if not filepath:
+                        logger.info(
+                            f"File not found after download: {filepath_without_ext}"
+                        )
+                        logger.debug(
+                            f"Directory contents: {[str(f) for f in dir_contents]}"
+                        )
+                        return None
+
+                logger.info(f"Successfully downloaded: {filepath}")
+                return filepath
+        except yt_dlp.utils.GeoRestrictedError:
+            logger.warning(f"Skipping geo-restricted track: {track.title} ({track.url})")
+            return None
+        except Exception as e:
+            logger.error(f"Failed to download track '{track.title}': {str(e)}")
+            return None
 
     def get_playlist_info(self, playlist_url: str) -> Playlist:
         """
@@ -149,6 +162,9 @@ class SoundCloudDownloader:
         playlist_dir.mkdir(exist_ok=True)
 
         downloaded_files: List[Path] = []
+        failed_tracks: List[str] = []
+        total_tracks = len(playlist.tracks)
+
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_track = {
                 executor.submit(self.download_track, track, playlist_dir): track
@@ -159,9 +175,18 @@ class SoundCloudDownloader:
                 filepath = future.result()
                 if filepath:
                     downloaded_files.append(filepath)
+                else:
+                    failed_tracks.append(track.title)
 
                 delay = random.uniform(min_delay, max_delay)
                 time.sleep(delay)
+
+        # Log summary
+        logger.info(f"Download complete: {len(downloaded_files)}/{total_tracks} tracks downloaded")
+        if failed_tracks:
+            logger.warning(f"Skipped {len(failed_tracks)} track(s): {', '.join(failed_tracks[:5])}")
+            if len(failed_tracks) > 5:
+                logger.warning(f"... and {len(failed_tracks) - 5} more")
 
         if downloaded_files:
             if should_zip:
@@ -207,7 +232,9 @@ def main() -> None:
             break
         logger.warning("Invalid input. Please enter 'y' for yes or 'n' for no.")
 
-    downloader = SoundCloudDownloader()
+    proxy = input("Enter proxy URL (optional, press Enter to skip): ").strip() or None
+
+    downloader = SoundCloudDownloader(proxy=proxy)
     logger.info("Downloading now please wait...")
     download = downloader.download_playlist(
         playlist_url, output_dir, max_workers=3, should_zip=should_zip

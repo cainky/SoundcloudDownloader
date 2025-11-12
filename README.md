@@ -42,6 +42,8 @@ poetry install
 
 ## Usage
 
+### Interactive Mode
+
 1. Run the script:
 
 ```python
@@ -53,9 +55,40 @@ poetry run python main.py
 
 3. Enter Y/n if you want the script to create a zip file of all the tracks.
 
-4. Enter the output directory where you want the files to be saved (or press Enter to use the `output` directory).
+4. (Optional) Enter a proxy URL if needed to bypass geo-restrictions, or press Enter to skip.
 
-5. The script will download all tracks in the playlist, convert them to MP3, and optionally create a zip file containing all the tracks.
+5. Enter the output directory where you want the files to be saved (or press Enter to use the `output` directory).
+
+6. The script will download all tracks in the playlist, convert them to MP3, and optionally create a zip file containing all the tracks.
+
+### CLI Mode (for GitHub Actions or automation)
+
+```bash
+poetry run python -m soundclouddownloader.cli_entry --url <PLAYLIST_URL> --output <OUTPUT_DIR> [--proxy <PROXY_URL>] [--zip]
+```
+
+**Options:**
+- `--url`: SoundCloud playlist URL (required)
+- `--output`: Output directory (default: "output")
+- `--proxy`: Proxy URL for bypassing geo-restrictions (e.g., `http://proxy.example.com:8080`)
+- `--zip`: Create a zip file of downloaded tracks
+
+**Example:**
+```bash
+poetry run python -m soundclouddownloader.cli_entry --url "https://soundcloud.com/user/sets/playlist" --output downloads --proxy http://proxy.example.com:8080 --zip
+```
+
+### Handling Geo-Restricted Tracks
+
+The downloader gracefully handles geo-restricted tracks by:
+- Logging a warning when a track is skipped due to geo-restrictions
+- Continuing to download other available tracks in the playlist
+- Providing a summary of successful downloads and skipped tracks
+
+If you encounter geo-restrictions, you can:
+1. Use the `--proxy` option to route downloads through a proxy server
+2. Run the downloader from a different geographic location
+3. Accept that some tracks may be unavailable and download the rest
 
 ## Running tests
 ```bash
