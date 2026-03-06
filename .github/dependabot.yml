@@ -1,11 +1,2 @@
 version: 2
-updates:
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "monthly"
-    groups:
-      all-dependencies:
-        patterns:
-          - "*"
-    open-pull-requests-limit: 3
+updates: []
