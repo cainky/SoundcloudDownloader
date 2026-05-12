@@ -112,18 +112,42 @@ class SoundCloudDownloader:
 
         Returns:
             Playlist: A Playlist object containing the playlist information.
+
+        Notes:
+            Uses yt-dlp's ``ignoreerrors=True`` so a single track that yt-dlp
+            cannot extract (e.g. tracks affected by the upstream SoundCloud
+            issue https://github.com/yt-dlp/yt-dlp/issues/16603) does not
+            abort the whole playlist. Failed entries come back as ``None``
+            and are filtered out below.
         """
-        with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
+        playlist_opts = dict(self.ydl_opts)
+        playlist_opts["ignoreerrors"] = True
+
+        with yt_dlp.YoutubeDL(playlist_opts) as ydl:
             playlist_info = ydl.extract_info(playlist_url, download=False)
-            tracks = [
-                Track(
-                    id=track["id"],
-                    title=track["title"],
-                    artist=track["uploader"],
-                    url=track["webpage_url"],
+            entries = playlist_info.get("entries") or []
+            tracks: List[Track] = []
+            skipped = 0
+            for entry in entries:
+                if entry is None:
+                    skipped += 1
+                    continue
+                tracks.append(
+                    Track(
+                        id=entry["id"],
+                        title=entry["title"],
+                        artist=entry["uploader"],
+                        url=entry["webpage_url"],
+                    )
                 )
-                for track in playlist_info["entries"]
-            ]
+            if skipped:
+                logger.warning(
+                    f"Skipped {skipped} track(s) that yt-dlp could not extract. "
+                    "This is likely the upstream SoundCloud issue tracked at "
+                    "https://github.com/yt-dlp/yt-dlp/issues/16603 "
+                    "(DRM-protected or newly-formatted tracks). "
+                    f"Continuing with {len(tracks)} extractable track(s)."
+                )
             return Playlist(
                 id=playlist_info["id"], title=playlist_info["title"], tracks=tracks
             )
