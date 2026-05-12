@@ -86,6 +86,42 @@ class TestSoundCloudDownloader(unittest.TestCase):
         self.assertEqual(result.tracks[0].title, "Track 1")
         self.assertEqual(result.tracks[1].artist, "Artist 2")
 
+    @patch("yt_dlp.YoutubeDL")
+    def test_get_playlist_info_skips_unextractable_entries(self, mock_yt_dlp):
+        # yt-dlp with ignoreerrors=True returns None entries for tracks
+        # it couldn't extract (e.g. upstream 404 / DRM-protected tracks).
+        # We should skip those and return the rest, not crash.
+        mock_ydl = MagicMock()
+        mock_yt_dlp.return_value.__enter__.return_value = mock_ydl
+        mock_ydl.extract_info.return_value = {
+            "id": "playlist123",
+            "title": "Mixed Playlist",
+            "entries": [
+                {
+                    "id": "track1",
+                    "title": "Track 1",
+                    "uploader": "Artist 1",
+                    "webpage_url": "https://soundcloud.com/track1",
+                },
+                None,  # yt-dlp couldn't extract this one
+                {
+                    "id": "track3",
+                    "title": "Track 3",
+                    "uploader": "Artist 3",
+                    "webpage_url": "https://soundcloud.com/track3",
+                },
+            ],
+        }
+
+        result = self.downloader.get_playlist_info(
+            "https://soundcloud.com/test_playlist"
+        )
+
+        self.assertIsInstance(result, Playlist)
+        self.assertEqual(len(result.tracks), 2)
+        self.assertEqual(result.tracks[0].id, "track1")
+        self.assertEqual(result.tracks[1].id, "track3")
+
     @patch("soundclouddownloader.SoundCloudDownloader.get_playlist_info")
     @patch("soundclouddownloader.SoundCloudDownloader.download_track")
     def test_download_playlist(self, mock_download_track, mock_get_playlist_info):
