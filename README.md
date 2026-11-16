@@ -72,11 +72,30 @@ poetry run python -m soundclouddownloader.cli_entry --url <PLAYLIST_URL> --outpu
 - `--output`: Output directory (default: "output")
 - `--proxy`: Proxy URL for bypassing geo-restrictions (e.g., `http://proxy.example.com:8080`)
 - `--zip`: Create a zip file of downloaded tracks
+- `--oauth-token`: SoundCloud OAuth token for Go+ high quality streams (see below)
+- `--audio-format`: `mp3` (default) or `best` to keep the original stream
 
 **Example:**
 ```bash
 poetry run python -m soundclouddownloader.cli_entry --url "https://soundcloud.com/user/sets/playlist" --output downloads --proxy http://proxy.example.com:8080 --zip
 ```
+
+### Higher Quality Audio (SoundCloud Go+)
+
+By default the downloader grabs the best stream available without logging in (usually 160kbps AAC) and converts it to MP3.
+
+If you have a SoundCloud Go+ subscription you can pass your OAuth token to unlock the 256kbps AAC high quality streams:
+
+```bash
+poetry run python -m soundclouddownloader.cli_entry --url <PLAYLIST_URL> --oauth-token <TOKEN> --audio-format best
+```
+
+- `--oauth-token`: your SoundCloud OAuth token. You can also set the `SOUNDCLOUD_OAUTH_TOKEN` environment variable instead. In interactive mode you'll be prompted for it.
+- `--audio-format`: `mp3` (default) or `best` to keep the original stream with no re-encoding. When a token is set and the format is `mp3`, tracks are encoded at 320kbps instead of 192kbps.
+
+**Getting your token:** log in to soundcloud.com in your browser, open DevTools (F12), go to Application > Cookies > `https://soundcloud.com` and copy the value of the `oauth_token` cookie. Treat it like a password.
+
+**GitHub Actions:** add the token as a repository secret named `SOUNDCLOUD_OAUTH_TOKEN` in your fork (Settings > Secrets and variables > Actions). The workflow picks it up automatically.
 
 ### Handling Geo-Restricted Tracks
 
