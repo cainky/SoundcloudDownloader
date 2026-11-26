@@ -156,3 +156,43 @@ class TestSoundCloudDownloader(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result, self.temp_dir / "Test Playlist")
         self.assertEqual(mock_download_track.call_count, 2)
+
+    def test_default_options_unchanged(self):
+        d = SoundCloudDownloader()
+        pp = d.ydl_opts["postprocessors"][0]
+        self.assertEqual(pp["preferredcodec"], "mp3")
+        self.assertEqual(pp["preferredquality"], "192")
+        self.assertNotIn("username", d.ydl_opts)
+        self.assertNotIn("password", d.ydl_opts)
+
+    def test_oauth_token_sets_login(self):
+        d = SoundCloudDownloader(oauth_token="abc123")
+        self.assertEqual(d.ydl_opts["username"], "oauth")
+        self.assertEqual(d.ydl_opts["password"], "abc123")
+        # MP3 output bumps to 320 when logged in so HQ streams aren't wasted
+        self.assertEqual(d.ydl_opts["postprocessors"][0]["preferredquality"], "320")
+
+    def test_audio_format_best_skips_reencode(self):
+        d = SoundCloudDownloader(audio_format="best")
+        pp = d.ydl_opts["postprocessors"][0]
+        self.assertEqual(pp["preferredcodec"], "best")
+        self.assertNotIn("preferredquality", pp)
+
+    @patch("yt_dlp.YoutubeDL")
+    def test_download_track_best_format_finds_file(self, mock_ydl):
+        mock_ydl_instance = MagicMock()
+        mock_ydl.return_value.__enter__.return_value = mock_ydl_instance
+        mock_ydl_instance.extract_info.return_value = {"title": "HQ Track"}
+        mock_ydl_instance.prepare_filename.return_value = "HQ_Track"
+
+        mock_file = self.temp_dir / "HQ_Track.m4a"
+        mock_file.touch()
+
+        d = SoundCloudDownloader(audio_format="best")
+        track = Track(id="t", title="HQ Track", artist="A", url="https://soundcloud.com/u/t")
+        with patch("time.sleep"):
+            result = d.download_track(track, self.temp_dir)
+        self.assertEqual(result, mock_file)
+        # Without an explicit ext in outtmpl, "best" saves extensionless files
+        download_opts = mock_ydl.call_args_list[-1][0][0]
+        self.assertTrue(download_opts["outtmpl"].endswith(".%(ext)s"))

@@ -1,4 +1,4 @@
-import os, sys, re, logging, time, random, shutil
+import os, sys, re, logging, time, random, shutil, glob, getpass
 from soundclouddownloader.utils import validate_url, clean_filename, create_zip
 from soundclouddownloader.dataclass import Track, Playlist
 from pathlib import Path
@@ -20,22 +20,34 @@ class SoundCloudDownloader:
     from SoundCloud, using yt-dlp as the backend.
     """
 
-    def __init__(self, proxy: Optional[str] = None):
+    def __init__(
+        self,
+        proxy: Optional[str] = None,
+        oauth_token: Optional[str] = None,
+        audio_format: str = "mp3",
+    ):
         """
         Initialize the SoundCloudDownloader with default yt-dlp options.
 
         Args:
             proxy (Optional[str]): Proxy URL to use for downloads (e.g., 'http://proxy.example.com:8080')
+            oauth_token (Optional[str]): SoundCloud OAuth token. With a Go+ account this
+                unlocks the 256kbps AAC high quality streams.
+            audio_format (str): Output codec passed to FFmpegExtractAudio. Defaults to
+                "mp3". Use "best" to keep the original stream without re-encoding.
         """
+        self.audio_format = audio_format
+        postprocessor: Dict[str, Any] = {
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": audio_format,
+        }
+        if audio_format == "mp3":
+            # Use 320 when logged in so the HQ stream isn't thrown away on re-encode
+            postprocessor["preferredquality"] = "320" if oauth_token else "192"
+
         self.ydl_opts = {
             "format": "bestaudio/best",
-            "postprocessors": [
-                {
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "mp3",
-                    "preferredquality": "192",
-                }
-            ],
+            "postprocessors": [postprocessor],
             "outtmpl": "%(title)s",
             "quiet": True,
             "no_warnings": True,
@@ -43,6 +55,11 @@ class SoundCloudDownloader:
         if proxy:
             self.ydl_opts["proxy"] = proxy
             logger.info(f"Using proxy: {proxy}")
+        if oauth_token:
+            # yt-dlp's SoundCloud extractor logs in with username "oauth" + the token as password
+            self.ydl_opts["username"] = "oauth"
+            self.ydl_opts["password"] = oauth_token
+            logger.info("Using SoundCloud OAuth token (Go+ HQ streams if available)")
 
     def download_track(self, track: Track, output_dir: Path) -> Optional[Path]:
         """
@@ -64,13 +81,27 @@ class SoundCloudDownloader:
 
                 ydl_opts = dict(self.ydl_opts)
                 ydl_opts["outtmpl"] = str(filepath_without_ext)
+                if self.audio_format == "best":
+                    # No re-encode means nothing adds an extension, so let yt-dlp
+                    # name the file with the source container (e.g. .m4a)
+                    ydl_opts["outtmpl"] += ".%(ext)s"
 
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([track.url])
 
                 time.sleep(0.5)  # Small delay to ensure file system update
-                if filepath_without_ext.with_suffix(".mp3").exists():
-                    filepath = filepath_without_ext.with_suffix(".mp3")
+                expected_ext = f".{self.audio_format}"
+                if (
+                    self.audio_format != "best"
+                    and filepath_without_ext.with_suffix(expected_ext).exists()
+                ):
+                    filepath = filepath_without_ext.with_suffix(expected_ext)
+                elif self.audio_format == "best" and (
+                    matches := sorted(
+                        Path(output_dir).glob(f"{glob.escape(clean_name)}.*")
+                    )
+                ):
+                    filepath = matches[0]
                 elif filepath_without_ext.exists():
                     filepath = filepath_without_ext
                 else:
@@ -258,7 +289,21 @@ def main() -> None:
 
     proxy = input("Enter proxy URL (optional, press Enter to skip): ").strip() or None
 
-    downloader = SoundCloudDownloader(proxy=proxy)
+    oauth_token = (
+        os.environ.get("SOUNDCLOUD_OAUTH_TOKEN")
+        or getpass.getpass(
+            "Enter SoundCloud OAuth token for Go+ HQ (optional, press Enter to skip): "
+        ).strip()
+        or None
+    )
+
+    audio_format = (
+        input("Audio format (mp3/best, default: mp3): ").strip().lower() or "mp3"
+    )
+
+    downloader = SoundCloudDownloader(
+        proxy=proxy, oauth_token=oauth_token, audio_format=audio_format
+    )
     logger.info("Downloading now please wait...")
     download = downloader.download_playlist(
         playlist_url, output_dir, max_workers=3, should_zip=should_zip

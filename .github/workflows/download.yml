@@ -10,6 +10,10 @@ on:
         description: 'Output folder name'
         required: false
         default: 'output'
+      audio_format:
+        description: 'Audio format (mp3, or best to keep the original stream)'
+        required: false
+        default: 'mp3'
 
 jobs:
   run:
@@ -39,10 +43,13 @@ jobs:
         run: poetry install
 
       - name: Run downloader
+        env:
+          SOUNDCLOUD_OAUTH_TOKEN: ${{ secrets.SOUNDCLOUD_OAUTH_TOKEN }}
         run: |
           poetry run python -m soundclouddownloader.cli_entry \
             --url "${{ github.event.inputs.playlist_url }}" \
-            --output "${{ github.event.inputs.output_folder }}"
+            --output "${{ github.event.inputs.output_folder }}" \
+            --audio-format "${{ github.event.inputs.audio_format }}"
 
       - name: Upload output files
         uses: actions/upload-artifact@v4
