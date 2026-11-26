@@ -30,6 +30,7 @@ def run(
     result = downloader.download_playlist(
         playlist_url, output_dir, max_workers=3, should_zip=should_zip
     )
+    return result
 
 
 if __name__ == "__main__":
@@ -53,7 +54,7 @@ if __name__ == "__main__":
     output_path = Path(args.output).resolve()
     output_path.mkdir(parents=True, exist_ok=True)
 
-    run(
+    result = run(
         args.url,
         output_path,
         args.zip,
@@ -61,3 +62,6 @@ if __name__ == "__main__":
         oauth_token=args.oauth_token or None,
         audio_format=args.audio_format,
     )
+    if result is None:
+        # Non-zero exit so GitHub Actions shows the run as failed instead of green
+        raise SystemExit(1)

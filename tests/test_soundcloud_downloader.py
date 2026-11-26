@@ -196,3 +196,58 @@ class TestSoundCloudDownloader(unittest.TestCase):
         # Without an explicit ext in outtmpl, "best" saves extensionless files
         download_opts = mock_ydl.call_args_list[-1][0][0]
         self.assertTrue(download_opts["outtmpl"].endswith(".%(ext)s"))
+
+    @patch("time.sleep")
+    @patch.object(SoundCloudDownloader, "_download_track_once")
+    def test_download_track_retries_on_rate_limit(self, mock_once, mock_sleep):
+        rate_limited = Exception(
+            "ERROR: [soundcloud] x: Unable to download JSON metadata: HTTP Error 403: Forbidden"
+        )
+        mock_once.side_effect = [rate_limited, rate_limited, self.temp_dir / "ok.mp3"]
+        track = Track(id="t", title="T", artist="A", url="https://soundcloud.com/u/t")
+        result = self.downloader.download_track(track, self.temp_dir)
+        self.assertEqual(result, self.temp_dir / "ok.mp3")
+        self.assertEqual(mock_once.call_count, 3)
+        self.assertEqual(mock_sleep.call_count, 2)
+
+    @patch("time.sleep")
+    @patch.object(SoundCloudDownloader, "_download_track_once")
+    def test_download_track_gives_up_after_max_retries(self, mock_once, mock_sleep):
+        mock_once.side_effect = Exception("HTTP Error 429: Too Many Requests")
+        track = Track(id="t", title="T", artist="A", url="https://soundcloud.com/u/t")
+        self.assertIsNone(self.downloader.download_track(track, self.temp_dir))
+        self.assertEqual(
+            mock_once.call_count, len(SoundCloudDownloader.RATE_LIMIT_BACKOFF) + 1
+        )
+
+    @patch("time.sleep")
+    @patch.object(SoundCloudDownloader, "_download_track_once")
+    def test_download_track_no_retry_on_drm(self, mock_once, mock_sleep):
+        mock_once.side_effect = Exception("This video is DRM protected")
+        track = Track(id="t", title="T", artist="A", url="https://soundcloud.com/u/t")
+        self.assertIsNone(self.downloader.download_track(track, self.temp_dir))
+        self.assertEqual(mock_once.call_count, 1)
+        mock_sleep.assert_not_called()
+
+    @patch("yt_dlp.YoutubeDL")
+    def test_get_playlist_info_single_track_url(self, mock_ydl):
+        mock_ydl_instance = MagicMock()
+        mock_ydl.return_value.__enter__.return_value = mock_ydl_instance
+        mock_ydl_instance.extract_info.return_value = {
+            "id": "123",
+            "title": "Solo",
+            "uploader": "Artist",
+            "webpage_url": "https://soundcloud.com/a/solo",
+        }
+        playlist = self.downloader.get_playlist_info("https://soundcloud.com/a/solo")
+        self.assertEqual(playlist.title, "Solo")
+        self.assertEqual(len(playlist.tracks), 1)
+        self.assertEqual(playlist.tracks[0].url, "https://soundcloud.com/a/solo")
+
+    @patch("yt_dlp.YoutubeDL")
+    def test_get_playlist_info_unextractable_url(self, mock_ydl):
+        mock_ydl_instance = MagicMock()
+        mock_ydl.return_value.__enter__.return_value = mock_ydl_instance
+        mock_ydl_instance.extract_info.return_value = None
+        with self.assertRaisesRegex(ValueError, "Could not extract"):
+            self.downloader.get_playlist_info("https://soundcloud.com/a/drm")
