@@ -1,4 +1,4 @@
-import os, sys, re, logging, time, random, shutil
+import os, sys, re, logging, time, random, shutil, glob, getpass
 from soundclouddownloader.utils import validate_url, clean_filename, create_zip
 from soundclouddownloader.dataclass import Track, Playlist
 from pathlib import Path
@@ -81,6 +81,10 @@ class SoundCloudDownloader:
 
                 ydl_opts = dict(self.ydl_opts)
                 ydl_opts["outtmpl"] = str(filepath_without_ext)
+                if self.audio_format == "best":
+                    # No re-encode means nothing adds an extension, so let yt-dlp
+                    # name the file with the source container (e.g. .m4a)
+                    ydl_opts["outtmpl"] += ".%(ext)s"
 
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([track.url])
@@ -92,6 +96,12 @@ class SoundCloudDownloader:
                     and filepath_without_ext.with_suffix(expected_ext).exists()
                 ):
                     filepath = filepath_without_ext.with_suffix(expected_ext)
+                elif self.audio_format == "best" and (
+                    matches := sorted(
+                        Path(output_dir).glob(f"{glob.escape(clean_name)}.*")
+                    )
+                ):
+                    filepath = matches[0]
                 elif filepath_without_ext.exists():
                     filepath = filepath_without_ext
                 else:
@@ -281,7 +291,7 @@ def main() -> None:
 
     oauth_token = (
         os.environ.get("SOUNDCLOUD_OAUTH_TOKEN")
-        or input(
+        or getpass.getpass(
             "Enter SoundCloud OAuth token for Go+ HQ (optional, press Enter to skip): "
         ).strip()
         or None

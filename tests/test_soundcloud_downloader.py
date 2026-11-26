@@ -193,3 +193,6 @@ class TestSoundCloudDownloader(unittest.TestCase):
         with patch("time.sleep"):
             result = d.download_track(track, self.temp_dir)
         self.assertEqual(result, mock_file)
+        # Without an explicit ext in outtmpl, "best" saves extensionless files
+        download_opts = mock_ydl.call_args_list[-1][0][0]
+        self.assertTrue(download_opts["outtmpl"].endswith(".%(ext)s"))
